@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'NodeJS' // Configure a NodeJS installation with this name under
+                         // Manage Jenkins > Tools > NodeJS Installations
+    }
+
+    // Change this to wherever you want the built site to be deployed on the
+    // Jenkins agent (e.g. the docroot of a local web server such as Nginx/Apache).
+    environment {
+        DEPLOY_DIR = '/var/www/html/rps-react'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Lint / Test') {
+            steps {
+                sh 'npm test'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'npm run build'
+            }
+        }
+
+        stage('Archive Artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'dist/**', fingerprint: true
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    mkdir -p "$DEPLOY_DIR"
+                    rm -rf "$DEPLOY_DIR"/*
+                    cp -r dist/* "$DEPLOY_DIR"/
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Build completed successfully and deployed to ${DEPLOY_DIR}."
+        }
+        failure {
+            echo 'Build failed. Check the logs above.'
+        }
+    }
+}
